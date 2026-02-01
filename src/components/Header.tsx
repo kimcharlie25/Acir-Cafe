@@ -45,41 +45,6 @@ const Header: React.FC<HeaderProps> = ({ cartItemsCount, onCartClick, onMenuClic
             </h1>
           </button>
 
-          <nav className="hidden md:flex items-center gap-6 flex-1 overflow-x-auto mx-4 px-2 scrollbar-hide">
-            {categoriesLoading ? (
-              <div className="flex space-x-8">
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="w-16 h-4 bg-gray-200 rounded animate-pulse" />
-                ))}
-              </div>
-            ) : (
-              <>
-                <button
-                  onClick={() => onCategoryClick?.('all')}
-                  className={`transition-colors duration-200 whitespace-nowrap ${selectedCategory === 'all' || !selectedCategory
-                    ? 'text-red-600 font-medium'
-                    : 'text-gray-700 hover:text-red-600'
-                    }`}
-                >
-                  All
-                </button>
-                {categories.map((category) => (
-                  <button
-                    key={category.id}
-                    onClick={() => onCategoryClick?.(category.id)}
-                    className={`flex items-center space-x-1 transition-colors duration-200 whitespace-nowrap ${selectedCategory === category.id
-                      ? 'text-red-600 font-medium'
-                      : 'text-gray-700 hover:text-red-600'
-                      }`}
-                  >
-                    <span>{category.icon}</span>
-                    <span>{category.name}</span>
-                  </button>
-                ))}
-              </>
-            )}
-          </nav>
-
           <div className="flex items-center space-x-2">
             <button
               onClick={onOrderTrackingClick}
@@ -100,6 +65,44 @@ const Header: React.FC<HeaderProps> = ({ cartItemsCount, onCartClick, onMenuClic
               )}
             </button>
           </div>
+        </div>
+
+        {/* Desktop Category Navigation */}
+        <div className="hidden md:block border-t border-gray-100 py-2">
+          <nav className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+            {categoriesLoading ? (
+              <div className="flex space-x-8">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="w-16 h-4 bg-gray-200 rounded animate-pulse" />
+                ))}
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={() => onCategoryClick?.('all')}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors duration-200 whitespace-nowrap ${selectedCategory === 'all' || !selectedCategory
+                      ? 'bg-red-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                >
+                  All
+                </button>
+                {categories.map((category) => (
+                  <button
+                    key={category.id}
+                    onClick={() => onCategoryClick?.(category.id)}
+                    className={`flex items-center space-x-2 px-4 py-1.5 rounded-full text-sm font-medium transition-colors duration-200 whitespace-nowrap ${selectedCategory === category.id
+                        ? 'bg-red-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                  >
+                    <span>{category.icon}</span>
+                    <span>{category.name}</span>
+                  </button>
+                ))}
+              </>
+            )}
+          </nav>
         </div>
       </div>
     </header>
