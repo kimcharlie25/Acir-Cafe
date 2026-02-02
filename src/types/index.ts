@@ -50,7 +50,7 @@ export interface OrderData {
   items: CartItem[];
   customerName: string;
   contactNumber: string;
-  serviceType: 'dine-in' | 'pickup' | 'delivery';
+  serviceType: 'dine-in' | 'take-out';
   address?: string;
   pickupTime?: string;
   // Dine-in specific fields
@@ -64,7 +64,7 @@ export interface OrderData {
 }
 
 export type PaymentMethod = 'gcash' | 'maya' | 'bank-transfer';
-export type ServiceType = 'dine-in' | 'pickup' | 'delivery';
+export type ServiceType = 'dine-in' | 'take-out';
 
 // Site Settings Types
 export interface SiteSetting {

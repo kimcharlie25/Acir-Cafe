@@ -1,18 +1,20 @@
+@import url('https://fonts.googleapis.com/css2?family=Corinthia:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ClickEats Custom Styles */
+/* Acir Cafe Brand Styles */
 .bg-cream-50 {
-  background-color: #fefce8;
+  background-color: #fff6f1;
 }
 
 .bg-cream-100 {
-  background-color: #fef3c7;
+  background-color: #f5ebe6;
 }
 
 .bg-cream-200 {
-  background-color: #fde68a;
+  background-color: #e8ddd6;
 }
 
 .border-cream-200 {

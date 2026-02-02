@@ -17,49 +17,49 @@ const Header: React.FC<HeaderProps> = ({ cartItemsCount, onCartClick, onMenuClic
   const { categories, loading: categoriesLoading } = useCategories();
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-red-200 shadow-sm">
+    <header className="sticky top-0 z-50 bg-brand-bg/95 backdrop-blur-sm border-b border-brand-primary/10 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <button
             onClick={onMenuClick}
-            className="flex items-center space-x-2 text-black hover:text-red-600 transition-colors duration-200"
+            className="flex items-center space-x-2 text-brand-primary hover:text-brand-accent transition-colors duration-200"
           >
             {loading ? (
-              <div className="w-10 h-10 bg-gray-200 rounded-full animate-pulse" />
+              <div className="w-10 h-10 bg-brand-light rounded-full animate-pulse" />
             ) : (
               <img
                 src={siteSettings?.site_logo || "/logo.jpg"}
-                alt={siteSettings?.site_name || "Beracah Cafe"}
+                alt={siteSettings?.site_name || "Acir Cafe"}
                 className="w-10 h-10 rounded-full object-cover"
                 onError={(e) => {
                   e.currentTarget.src = "/logo.jpg";
                 }}
               />
             )}
-            <h1 className="text-2xl font-noto font-semibold">
+            <h1 className="text-3xl font-corinthia font-bold text-brand-primary">
               {loading ? (
-                <div className="w-24 h-6 bg-gray-200 rounded animate-pulse" />
+                <div className="w-24 h-6 bg-brand-light rounded animate-pulse" />
               ) : (
-                siteSettings?.site_name || "Beracah Cafe"
+                siteSettings?.site_name || "Acir Cafe"
               )}
             </h1>
           </button>
 
           <div className="flex items-center space-x-2">
-            <button
+            {/*<button
               onClick={onOrderTrackingClick}
-              className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:text-black hover:bg-gray-100 rounded-lg transition-all duration-200 text-sm font-medium"
+              className="flex items-center gap-2 px-3 py-2 text-brand-primary hover:text-brand-accent hover:bg-brand-light rounded-lg transition-all duration-200 text-sm font-medium"
             >
               <Package className="h-5 w-5" />
               <span className="hidden sm:inline">Track Order</span>
-            </button>
+            </button> */}
             <button
               onClick={onCartClick}
-              className="relative p-2 text-gray-700 hover:text-black hover:bg-yellow-100 rounded-full transition-all duration-200"
+              className="relative p-2 text-brand-primary hover:text-brand-accent hover:bg-brand-light rounded-full transition-all duration-200"
             >
               <ShoppingCart className="h-6 w-6" />
               {cartItemsCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center animate-bounce-gentle">
+                <span className="absolute -top-1 -right-1 bg-brand-primary text-white text-xs rounded-full h-5 w-5 flex items-center justify-center animate-bounce-gentle">
                   {cartItemsCount}
                 </span>
               )}
@@ -68,12 +68,12 @@ const Header: React.FC<HeaderProps> = ({ cartItemsCount, onCartClick, onMenuClic
         </div>
 
         {/* Desktop Category Navigation */}
-        <div className="hidden md:block border-t border-gray-100 py-2">
+        <div className="hidden md:block border-t border-brand-primary/10 py-2">
           <nav className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
             {categoriesLoading ? (
               <div className="flex space-x-8">
                 {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="w-16 h-4 bg-gray-200 rounded animate-pulse" />
+                  <div key={i} className="w-16 h-4 bg-brand-light rounded animate-pulse" />
                 ))}
               </div>
             ) : (
@@ -81,8 +81,8 @@ const Header: React.FC<HeaderProps> = ({ cartItemsCount, onCartClick, onMenuClic
                 <button
                   onClick={() => onCategoryClick?.('all')}
                   className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors duration-200 whitespace-nowrap ${selectedCategory === 'all' || !selectedCategory
-                      ? 'bg-red-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-brand-primary text-white'
+                    : 'bg-brand-light text-brand-primary hover:bg-brand-primary/10'
                     }`}
                 >
                   All
@@ -92,8 +92,8 @@ const Header: React.FC<HeaderProps> = ({ cartItemsCount, onCartClick, onMenuClic
                     key={category.id}
                     onClick={() => onCategoryClick?.(category.id)}
                     className={`flex items-center space-x-2 px-4 py-1.5 rounded-full text-sm font-medium transition-colors duration-200 whitespace-nowrap ${selectedCategory === category.id
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? 'bg-brand-primary text-white'
+                      : 'bg-brand-light text-brand-primary hover:bg-brand-primary/10'
                       }`}
                   >
                     <span>{category.icon}</span>

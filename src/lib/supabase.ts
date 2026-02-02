@@ -212,7 +212,7 @@ export type Database = {
           id: string;
           customer_name: string;
           contact_number: string;
-          service_type: 'dine-in' | 'pickup' | 'delivery';
+          service_type: 'dine-in' | 'take-out';
           address: string | null;
           pickup_time: string | null;
           party_size: number | null;
@@ -229,7 +229,7 @@ export type Database = {
           id?: string;
           customer_name: string;
           contact_number: string;
-          service_type: 'dine-in' | 'pickup' | 'delivery';
+          service_type: 'dine-in' | 'take-out';
           address?: string | null;
           pickup_time?: string | null;
           party_size?: number | null;
@@ -246,7 +246,7 @@ export type Database = {
           id?: string;
           customer_name?: string;
           contact_number?: string;
-          service_type?: 'dine-in' | 'pickup' | 'delivery';
+          service_type?: 'dine-in' | 'take-out';
           address?: string | null;
           pickup_time?: string | null;
           party_size?: number | null;

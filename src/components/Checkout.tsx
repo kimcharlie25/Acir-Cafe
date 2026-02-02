@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Clock, Upload, X, Check, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, Upload, X, Check, Loader2 } from 'lucide-react';
 import { CartItem, PaymentMethod, ServiceType } from '../types';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { useOrders } from '../hooks/useOrders';
@@ -11,24 +11,60 @@ interface CheckoutProps {
   onBack: () => void;
 }
 
+// Countdown Modal Component
+const CountdownModal: React.FC<{
+  orderNumber: string;
+  countdown: number;
+  setCountdown: React.Dispatch<React.SetStateAction<number>>;
+  onDone: () => void;
+}> = ({ orderNumber, countdown, setCountdown, onDone }) => {
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown, setCountdown]);
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl max-w-md w-full p-8 text-center shadow-2xl">
+        <div className="text-6xl mb-4">✅</div>
+        <h2 className="text-3xl font-corinthia font-bold text-brand-primary mb-4">Order Confirmed!</h2>
+        <p className="text-brand-muted mb-6 font-inter">
+          Please proceed to the counter with this order number:
+        </p>
+        <div className="bg-brand-bg rounded-xl py-4 px-6 mb-6">
+          <span className="text-4xl font-bold text-brand-primary font-mono">#{orderNumber}</span>
+        </div>
+        <button
+          onClick={onDone}
+          disabled={countdown > 0}
+          className={`w-full py-3 rounded-xl transition-all duration-200 font-medium font-inter ${countdown > 0
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : 'bg-brand-primary text-white hover:bg-brand-accent'
+            }`}
+        >
+          {countdown > 0 ? `Done (${countdown})` : 'Done'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) => {
   const { paymentMethods } = usePaymentMethods();
   const { createOrder, creating, error } = useOrders();
   const [step, setStep] = useState<'details' | 'payment'>('details');
   const [customerName, setCustomerName] = useState('');
-  const [contactNumber, setContactNumber] = useState('');
   const [serviceType, setServiceType] = useState<ServiceType>('dine-in');
-  const [address, setAddress] = useState('');
-  const [landmark, setLandmark] = useState('');
-  const [pickupTime, setPickupTime] = useState('5-10');
-  const [customTime, setCustomTime] = useState('');
-  // Dine-in specific state
-  const [partySize, setPartySize] = useState(1);
-  const [dineInTime, setDineInTime] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('gcash');
   const [referenceNumber] = useState('');
   const [notes, setNotes] = useState('');
   const [uiNotice, setUiNotice] = useState<string | null>(null);
+  // Order confirmation modal state
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [confirmedOrderNumber, setConfirmedOrderNumber] = useState<string | null>(null);
+  const [doneCountdown, setDoneCountdown] = useState(5);
   // Receipt upload state
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
@@ -86,6 +122,35 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
     setStep('payment');
   };
 
+  const handleConfirmOrder = async () => {
+    try {
+      const mergedNotes = notes;
+      const order = await createOrder({
+        customerName,
+        serviceType,
+        paymentMethod: 'counter', // Pay at counter
+        referenceNumber,
+        notes: mergedNotes,
+        total: totalPrice,
+        items: cartItems,
+      });
+      // Show the order confirmation modal
+      setConfirmedOrderNumber(order.id.slice(-6).toUpperCase());
+      setShowOrderModal(true);
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : '';
+      if (/insufficient stock/i.test(raw)) {
+        setUiNotice(raw);
+        return;
+      }
+      if (/rate limit/i.test(raw)) {
+        setUiNotice('Too many orders: Please wait 1 minute before placing another order.');
+      } else {
+        setUiNotice('Unable to place order. Please try again.');
+      }
+    }
+  };
+
   const handlePlaceOrder = async () => {
     let uploadedReceiptUrl = receiptUrl;
 
@@ -98,7 +163,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
 
         // Compress image before upload
         const compressedFile = await compressImage(receiptFile, 1200, 0.8);
-        
+
         // Upload to Cloudinary
         uploadedReceiptUrl = await uploadReceiptToCloudinary(compressedFile);
         setReceiptUrl(uploadedReceiptUrl);
@@ -117,15 +182,10 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
     // Persist order to database
     let orderId: string;
     try {
-      const mergedNotes = landmark ? `${notes ? notes + ' | ' : ''}Landmark: ${landmark}` : notes;
+      const mergedNotes = notes;
       const order = await createOrder({
         customerName,
-        contactNumber,
         serviceType,
-        address: serviceType === 'delivery' ? address : undefined,
-        pickupTime: serviceType === 'pickup' ? (pickupTime === 'custom' ? customTime : `${pickupTime} minutes`) : undefined,
-        partySize: serviceType === 'dine-in' ? partySize : undefined,
-        dineInTime: serviceType === 'dine-in' ? dineInTime : undefined,
         paymentMethod,
         referenceNumber,
         notes: mergedNotes,
@@ -149,61 +209,42 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
       }
       return;
     }
-    const timeInfo = serviceType === 'pickup' 
-      ? (pickupTime === 'custom' ? customTime : `${pickupTime} minutes`)
-      : '';
-    
-    const dineInInfo = serviceType === 'dine-in' 
-      ? `👥 Party Size: ${partySize} person${partySize !== 1 ? 's' : ''}\n🕐 Preferred Time: ${new Date(dineInTime).toLocaleString('en-US', { 
-          weekday: 'long', 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric', 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        })}`
-      : '';
-    
+
     const orderDetails = `
-🛒 ClickEats ORDER
-📋 Order Code: #${orderId.slice(-8).toUpperCase()}
+🛒 ACIR CAFE ORDER
+📋 Order Code: #${orderId.slice(-6).toUpperCase()}
 
 👤 Customer: ${customerName}
-📞 Contact: ${contactNumber}
-📍 Service: ${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)}
-${serviceType === 'delivery' ? `🏠 Address: ${address}${landmark ? `\n🗺️ Landmark: ${landmark}` : ''}` : ''}
-${serviceType === 'pickup' ? `⏰ Pickup Time: ${timeInfo}` : ''}
-${serviceType === 'dine-in' ? dineInInfo : ''}
-
+📍 Service: ${serviceType === 'dine-in' ? 'Dine In' : 'Take Out'}
 
 📋 ORDER DETAILS:
 ${cartItems.map(item => {
-  let itemDetails = `• ${item.name}`;
-  if (item.selectedVariation) {
-    itemDetails += ` (${item.selectedVariation.name})`;
-  }
-  if (item.selectedAddOns && item.selectedAddOns.length > 0) {
-    itemDetails += ` + ${item.selectedAddOns.map(addOn => 
-      addOn.quantity && addOn.quantity > 1 
-        ? `${addOn.name} x${addOn.quantity}`
-        : addOn.name
-    ).join(', ')}`;
-  }
-  itemDetails += ` x${item.quantity} - ₱${item.totalPrice * item.quantity}`;
-  return itemDetails;
-}).join('\n')}
+      let itemDetails = `• ${item.name}`;
+      if (item.selectedVariation) {
+        itemDetails += ` (${item.selectedVariation.name})`;
+      }
+      if (item.selectedAddOns && item.selectedAddOns.length > 0) {
+        itemDetails += ` + ${item.selectedAddOns.map(addOn =>
+          addOn.quantity && addOn.quantity > 1
+            ? `${addOn.name} x${addOn.quantity}`
+            : addOn.name
+        ).join(', ')}`;
+      }
+      itemDetails += ` x${item.quantity} - ₱${item.totalPrice * item.quantity}`;
+      return itemDetails;
+    }).join('\n')}
 
 💰 TOTAL: ₱${totalPrice}
-${serviceType === 'delivery' ? `🛵 DELIVERY FEE:` : ''}
+
 
 💳 Payment: ${selectedPaymentMethod?.name || paymentMethod}
 ${uploadedReceiptUrl ? `📸 Payment Receipt: ${uploadedReceiptUrl}` : '📸 Payment Screenshot: Please attach your payment receipt screenshot'}
 
 ${notes ? `📝 Notes: ${notes}` : ''}
 
-Please confirm this order to proceed. Thank you for choosing ClickEats! 🥟
+Please confirm this order to proceed. Thank you for choosing Acir Cafe! ☕
 
-📋 Order Code: #${orderId.slice(-8).toUpperCase()}
+📋 Order Code: #${orderId.slice(-6).toUpperCase()}
     `.trim();
 
     const pageId = '61579693577478';
@@ -216,13 +257,10 @@ Please confirm this order to proceed. Thank you for choosing ClickEats! 🥟
     // Use window.location for both mobile and desktop to avoid popup blocker
     // This will navigate away from the site but ensures the link always works
     window.location.href = webLink;
-    
+
   };
 
-  const isDetailsValid = customerName && contactNumber && 
-    (serviceType !== 'delivery' || address) && 
-    (serviceType !== 'pickup' || (pickupTime !== 'custom' || customTime)) &&
-    (serviceType !== 'dine-in' || (partySize > 0 && dineInTime));
+  const isDetailsValid = customerName;
 
   if (step === 'details') {
     return (
@@ -230,235 +268,123 @@ Please confirm this order to proceed. Thank you for choosing ClickEats! 🥟
         <div className="flex items-center mb-8">
           <button
             onClick={onBack}
-            className="flex items-center space-x-2 text-gray-600 hover:text-black transition-colors duration-200"
+            className="flex items-center space-x-2 text-brand-muted hover:text-brand-primary transition-colors duration-200"
           >
             <ArrowLeft className="h-5 w-5" />
-            <span>Back to Cart</span>
+            <span className="font-inter">Back to Cart</span>
           </button>
-          <h1 className="text-3xl font-noto font-semibold text-black ml-8">Order Details</h1>
+          <h1 className="text-4xl font-corinthia font-bold text-brand-primary ml-8">Order Details</h1>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Order Summary */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <h2 className="text-2xl font-noto font-medium text-black mb-6">Order Summary</h2>
-            
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-brand-primary/10">
+            <h2 className="text-3xl font-corinthia font-bold text-brand-primary mb-6">Order Summary</h2>
+
             <div className="space-y-4 mb-6">
               {cartItems.map((item) => (
-                <div key={item.id} className="flex items-center justify-between py-2 border-b border-red-100">
+                <div key={item.id} className="flex items-center justify-between py-2 border-b border-brand-primary/10">
                   <div>
-                    <h4 className="font-medium text-black">{item.name}</h4>
+                    <h4 className="font-medium text-brand-primary font-inter">{item.name}</h4>
                     {item.selectedVariation && (
-                      <p className="text-sm text-gray-600">Size: {item.selectedVariation.name}</p>
+                      <p className="text-sm text-brand-muted font-inter">Size: {item.selectedVariation.name}</p>
                     )}
                     {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-brand-muted font-inter">
                         Add-ons: {item.selectedAddOns.map(addOn => addOn.name).join(', ')}
                       </p>
                     )}
-                    <p className="text-sm text-gray-600">₱{item.totalPrice} x {item.quantity}</p>
+                    <p className="text-sm text-brand-muted font-inter">₱{item.totalPrice} x {item.quantity}</p>
                   </div>
-                  <span className="font-semibold text-black">₱{item.totalPrice * item.quantity}</span>
+                  <span className="font-semibold text-brand-primary font-inter">₱{item.totalPrice * item.quantity}</span>
                 </div>
               ))}
             </div>
-            
-            <div className="border-t border-red-200 pt-4">
-              <div className="flex items-center justify-between text-2xl font-noto font-semibold text-black">
+
+            <div className="border-t border-brand-primary/20 pt-4">
+              <div className="flex items-center justify-between text-2xl font-corinthia font-bold text-brand-primary">
                 <span>Total:</span>
-                <span>₱{totalPrice}</span>
+                <span className="font-inter">₱{totalPrice}</span>
               </div>
             </div>
           </div>
 
           {/* Customer Details Form */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <h2 className="text-2xl font-noto font-medium text-black mb-6">Customer Information</h2>
-            
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-brand-primary/10">
+            <h2 className="text-3xl font-corinthia font-bold text-brand-primary mb-6">Customer Information</h2>
+
             <form className="space-y-6">
               {/* Customer Information */}
               <div>
-                <label className="block text-sm font-medium text-black mb-2">Full Name *</label>
+                <label className="block text-sm font-medium text-brand-primary mb-2 font-inter">Full Name *</label>
                 <input
                   type="text"
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  className="w-full px-4 py-3 border border-brand-primary/30 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all duration-200 font-inter"
                   placeholder="Enter your full name"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-black mb-2">Contact Number *</label>
-                <input
-                  type="tel"
-                  value={contactNumber}
-                  onChange={(e) => setContactNumber(e.target.value)}
-                  className="w-full px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                  placeholder="09XX XXX XXXX"
-                  required
-                />
-              </div>
-
-              {/* Service Type */}
-              <div>
-                <label className="block text-sm font-medium text-black mb-3">Service Type *</label>
-                <div className="grid grid-cols-3 gap-3">
+                <label className="block text-sm font-medium text-brand-primary mb-3 font-inter">Service Type *</label>
+                <div className="grid grid-cols-2 gap-3">
                   {[
                     { value: 'dine-in', label: 'Dine In', icon: '🪑' },
-                    { value: 'pickup', label: 'Pickup', icon: '🚶' },
-                    { value: 'delivery', label: 'Delivery', icon: '🛵' }
+                    { value: 'take-out', label: 'Take Out', icon: '🍔' }
                   ].map((option) => (
                     <button
                       key={option.value}
                       type="button"
                       onClick={() => setServiceType(option.value as ServiceType)}
-                      className={`p-4 rounded-lg border-2 transition-all duration-200 ${
-                        serviceType === option.value
-                          ? 'border-red-600 bg-red-600 text-white'
-                          : 'border-red-300 bg-white text-gray-700 hover:border-red-400'
-                      }`}
+                      className={`p-4 rounded-lg border-2 transition-all duration-200 ${serviceType === option.value
+                        ? 'border-brand-primary bg-brand-primary text-white'
+                        : 'border-brand-primary/30 bg-white text-brand-primary hover:border-brand-primary/50'
+                        }`}
                     >
                       <div className="text-2xl mb-1">{option.icon}</div>
-                      <div className="text-sm font-medium">{option.label}</div>
+                      <div className="text-sm font-medium font-inter">{option.label}</div>
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Dine-in Details */}
-              {serviceType === 'dine-in' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-black mb-2">Party Size *</label>
-                    <div className="flex items-center space-x-4">
-                      <button
-                        type="button"
-                        onClick={() => setPartySize(Math.max(1, partySize - 1))}
-                        className="w-10 h-10 rounded-lg border-2 border-red-300 flex items-center justify-center text-red-600 hover:border-red-400 hover:bg-red-50 transition-all duration-200"
-                      >
-                        -
-                      </button>
-                      <span className="text-2xl font-semibold text-black min-w-[3rem] text-center">{partySize}</span>
-                      <button
-                        type="button"
-                        onClick={() => setPartySize(Math.min(20, partySize + 1))}
-                        className="w-10 h-10 rounded-lg border-2 border-red-300 flex items-center justify-center text-red-600 hover:border-red-400 hover:bg-red-50 transition-all duration-200"
-                      >
-                        +
-                      </button>
-                      <span className="text-sm text-gray-600 ml-2">person{partySize !== 1 ? 's' : ''}</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-black mb-2">Preferred Time *</label>
-                    <input
-                      type="datetime-local"
-                      value={dineInTime}
-                      onChange={(e) => setDineInTime(e.target.value)}
-                      className="w-full px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Please select your preferred dining time</p>
-                  </div>
-                </>
-              )}
-
-              {/* Pickup Time Selection */}
-              {serviceType === 'pickup' && (
-                <div>
-                  <label className="block text-sm font-medium text-black mb-3">Pickup Time *</label>
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      {[
-                        { value: '5-10', label: '5-10 minutes' },
-                        { value: '15-20', label: '15-20 minutes' },
-                        { value: '25-30', label: '25-30 minutes' },
-                        { value: 'custom', label: 'Custom Time' }
-                      ].map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => setPickupTime(option.value)}
-                          className={`p-3 rounded-lg border-2 transition-all duration-200 text-sm ${
-                            pickupTime === option.value
-                              ? 'border-red-600 bg-red-600 text-white'
-                              : 'border-red-300 bg-white text-gray-700 hover:border-red-400'
-                          }`}
-                        >
-                          <Clock className="h-4 w-4 mx-auto mb-1" />
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                    
-                    {pickupTime === 'custom' && (
-                      <input
-                        type="text"
-                        value={customTime}
-                        onChange={(e) => setCustomTime(e.target.value)}
-                        className="w-full px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                        placeholder="e.g., 45 minutes, 1 hour, 2:30 PM"
-                        required
-                      />
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Delivery Address */}
-              {serviceType === 'delivery' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-black mb-2">Delivery Address *</label>
-                    <textarea
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      className="w-full px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                      placeholder="Enter your complete delivery address"
-                      rows={3}
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-black mb-2">Landmark</label>
-                    <input
-                      type="text"
-                      value={landmark}
-                      onChange={(e) => setLandmark(e.target.value)}
-                      className="w-full px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                      placeholder="e.g., Near McDonald's, Beside 7-Eleven, In front of school"
-                    />
-                  </div>
-                </>
-              )}
-
               {/* Special Notes */}
               <div>
-                <label className="block text-sm font-medium text-black mb-2">Special Instructions</label>
+                <label className="block text-sm font-medium text-brand-primary mb-2 font-inter">Special Instructions</label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  className="w-full px-4 py-3 border border-brand-primary/30 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all duration-200 font-inter"
                   placeholder="Any special requests or notes..."
                   rows={3}
                 />
               </div>
 
               <button
-                onClick={handleProceedToPayment}
-                disabled={!isDetailsValid}
-                className={`w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform ${
-                  isDetailsValid
-                    ? 'bg-red-600 text-white hover:bg-red-700 hover:scale-[1.02]'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
+                onClick={handleConfirmOrder}
+                disabled={!isDetailsValid || creating}
+                className={`w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform font-inter ${isDetailsValid && !creating
+                  ? 'bg-brand-primary text-white hover:bg-brand-accent hover:scale-[1.02]'
+                  : 'bg-brand-light text-brand-muted cursor-not-allowed'
+                  }`}
               >
-                Proceed to Payment
+                {creating ? 'Placing Order...' : 'Confirm Order'}
               </button>
+
+              {/* Order Confirmation Modal */}
+              {showOrderModal && confirmedOrderNumber && (
+                <CountdownModal
+                  orderNumber={confirmedOrderNumber}
+                  countdown={doneCountdown}
+                  setCountdown={setDoneCountdown}
+                  onDone={() => {
+                    setShowOrderModal(false);
+                    window.location.reload(); // Refresh to clear cart
+                  }}
+                />
+              )}
             </form>
           </div>
         </div>
@@ -472,85 +398,84 @@ Please confirm this order to proceed. Thank you for choosing ClickEats! 🥟
       <div className="flex items-center mb-8">
         <button
           onClick={() => setStep('details')}
-          className="flex items-center space-x-2 text-gray-600 hover:text-black transition-colors duration-200"
+          className="flex items-center space-x-2 text-brand-muted hover:text-brand-primary transition-colors duration-200"
         >
           <ArrowLeft className="h-5 w-5" />
-          <span>Back to Details</span>
+          <span className="font-inter">Back to Details</span>
         </button>
-        <h1 className="text-3xl font-noto font-semibold text-black ml-8">Payment</h1>
+        <h1 className="text-4xl font-corinthia font-bold text-brand-primary ml-8">Payment</h1>
       </div>
 
       {uiNotice && (
-        <div className="mb-4 rounded-lg border border-yellow-300 bg-yellow-50 text-yellow-800 p-4 text-sm">
+        <div className="mb-4 rounded-lg border border-brand-muted/30 bg-brand-bg text-brand-primary p-4 text-sm font-inter">
           {uiNotice}
         </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Payment Method Selection */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-2xl font-noto font-medium text-black mb-6">Choose Payment Method</h2>
-          
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-brand-primary/10">
+          <h2 className="text-3xl font-corinthia font-bold text-brand-primary mb-6">Choose Payment Method</h2>
+
           <div className="grid grid-cols-1 gap-4 mb-6">
             {paymentMethods.map((method) => (
               <button
                 key={method.id}
                 type="button"
                 onClick={() => setPaymentMethod(method.id as PaymentMethod)}
-                className={`p-4 rounded-lg border-2 transition-all duration-200 flex items-center space-x-3 ${
-                  paymentMethod === method.id
-                    ? 'border-red-600 bg-red-600 text-white'
-                    : 'border-red-300 bg-white text-gray-700 hover:border-red-400'
-                }`}
+                className={`p-4 rounded-lg border-2 transition-all duration-200 flex items-center space-x-3 ${paymentMethod === method.id
+                  ? 'border-brand-primary bg-brand-primary text-white'
+                  : 'border-brand-primary/30 bg-white text-brand-primary hover:border-brand-primary/50'
+                  }`}
               >
                 <span className="text-2xl">💳</span>
-                <span className="font-medium">{method.name}</span>
+                <span className="font-medium font-inter">{method.name}</span>
               </button>
             ))}
           </div>
 
           {/* Payment Details with QR Code */}
           {selectedPaymentMethod && (
-            <div className="bg-red-50 rounded-lg p-6 mb-6">
-              <h3 className="font-medium text-black mb-4">Payment Details</h3>
+            <div className="bg-brand-bg rounded-lg p-6 mb-6">
+              <h3 className="font-medium text-brand-primary mb-4 font-inter">Payment Details</h3>
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div className="flex-1">
-                  <p className="text-sm text-gray-600 mb-1">{selectedPaymentMethod.name}</p>
-                  <p className="font-mono text-black font-medium">{selectedPaymentMethod.account_number}</p>
-                  <p className="text-sm text-gray-600 mb-3">Account Name: {selectedPaymentMethod.account_name}</p>
-                  <p className="text-xl font-semibold text-black">Amount: ₱{totalPrice}</p>
+                  <p className="text-sm text-brand-muted mb-1 font-inter">{selectedPaymentMethod.name}</p>
+                  <p className="font-mono text-brand-primary font-medium">{selectedPaymentMethod.account_number}</p>
+                  <p className="text-sm text-brand-muted mb-3 font-inter">Account Name: {selectedPaymentMethod.account_name}</p>
+                  <p className="text-xl font-semibold text-brand-primary font-inter">Amount: ₱{totalPrice}</p>
                 </div>
                 <div className="flex-shrink-0">
-                  <img 
-                    src={selectedPaymentMethod.qr_code_url} 
+                  <img
+                    src={selectedPaymentMethod.qr_code_url}
                     alt={`${selectedPaymentMethod.name} QR Code`}
-                    className="w-32 h-32 rounded-lg border-2 border-red-300 shadow-sm"
+                    className="w-32 h-32 rounded-lg border-2 border-brand-primary/30 shadow-sm"
                     onError={(e) => {
                       e.currentTarget.src = 'https://images.pexels.com/photos/8867482/pexels-photo-8867482.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop';
                     }}
                   />
-                  <p className="text-xs text-gray-500 text-center mt-2">Scan to pay</p>
+                  <p className="text-xs text-brand-muted text-center mt-2 font-inter">Scan to pay</p>
                 </div>
               </div>
             </div>
           )}
 
           {/* Receipt Upload */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-medium text-black mb-3">📸 Upload Payment Receipt</h4>
-            
+          <div className="bg-brand-light border border-brand-primary/20 rounded-lg p-4">
+            <h4 className="font-medium text-brand-primary mb-3 font-inter">📸 Upload Payment Receipt</h4>
+
             {!receiptPreview ? (
               <div>
                 <label
                   htmlFor="receipt-upload"
-                  className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-blue-300 rounded-lg cursor-pointer bg-white hover:bg-blue-50 transition-colors"
+                  className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-brand-primary/30 rounded-lg cursor-pointer bg-white hover:bg-brand-bg transition-colors"
                 >
                   <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <Upload className="h-8 w-8 text-blue-500 mb-2" />
-                    <p className="text-sm text-gray-600">
+                    <Upload className="h-8 w-8 text-brand-primary mb-2" />
+                    <p className="text-sm text-brand-muted font-inter">
                       <span className="font-semibold">Click to select receipt</span> or drag and drop
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">PNG, JPG, WEBP up to 10MB (Optional)</p>
+                    <p className="text-xs text-brand-muted mt-1 font-inter">PNG, JPG, WEBP up to 10MB (Optional)</p>
                   </div>
                   <input
                     id="receipt-upload"
@@ -563,7 +488,7 @@ Please confirm this order to proceed. Thank you for choosing ClickEats! 🥟
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="relative rounded-lg overflow-hidden border-2 border-blue-300">
+                <div className="relative rounded-lg overflow-hidden border-2 border-brand-primary/30">
                   <img
                     src={receiptPreview}
                     alt="Receipt preview"
@@ -571,7 +496,7 @@ Please confirm this order to proceed. Thank you for choosing ClickEats! 🥟
                   />
                   <button
                     onClick={handleRemoveReceipt}
-                    className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                    className="absolute top-2 right-2 p-1 bg-brand-primary text-white rounded-full hover:bg-brand-accent transition-colors"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -580,103 +505,74 @@ Please confirm this order to proceed. Thank you for choosing ClickEats! 🥟
                 {receiptUrl ? (
                   <div className="flex items-center space-x-2 text-green-600 bg-green-50 px-3 py-2 rounded-lg">
                     <Check className="h-5 w-5" />
-                    <span className="text-sm font-medium">Receipt ready! Will be saved with your order.</span>
+                    <span className="text-sm font-medium font-inter">Receipt ready! Will be saved with your order.</span>
                   </div>
                 ) : (
-                  <div className="flex items-center space-x-2 text-blue-600 bg-blue-50 px-3 py-2 rounded-lg">
+                  <div className="flex items-center space-x-2 text-brand-primary bg-brand-bg px-3 py-2 rounded-lg">
                     <Upload className="h-5 w-5" />
-                    <span className="text-sm font-medium">Receipt selected. Will upload when you place order.</span>
+                    <span className="text-sm font-medium font-inter">Receipt selected. Will upload when you place order.</span>
                   </div>
                 )}
 
                 {uploadError && (
-                  <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+                  <div className="text-sm text-brand-primary bg-brand-light px-3 py-2 rounded-lg font-inter">
                     {uploadError}
                   </div>
                 )}
               </div>
             )}
-            
-            <p className="text-xs text-gray-600 mt-3">
+
+            <p className="text-xs text-brand-muted mt-3 font-inter">
               {receiptFile ? 'Receipt will be uploaded automatically when you place your order.' : 'You can also attach your receipt in the Messenger conversation.'}
             </p>
           </div>
         </div>
 
         {/* Order Summary */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-2xl font-noto font-medium text-black mb-6">Final Order Summary</h2>
-          
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-brand-primary/10">
+          <h2 className="text-3xl font-corinthia font-bold text-brand-primary mb-6">Final Order Summary</h2>
+
           <div className="space-y-4 mb-6">
-            <div className="bg-red-50 rounded-lg p-4">
-              <h4 className="font-medium text-black mb-2">Customer Details</h4>
-              <p className="text-sm text-gray-600">Name: {customerName}</p>
-              <p className="text-sm text-gray-600">Contact: {contactNumber}</p>
-              <p className="text-sm text-gray-600">Service: {serviceType.charAt(0).toUpperCase() + serviceType.slice(1)}</p>
-              {serviceType === 'delivery' && (
-                <>
-                  <p className="text-sm text-gray-600">Address: {address}</p>
-                  {landmark && <p className="text-sm text-gray-600">Landmark: {landmark}</p>}
-                </>
-              )}
-              {serviceType === 'pickup' && (
-                <p className="text-sm text-gray-600">
-                  Pickup Time: {pickupTime === 'custom' ? customTime : `${pickupTime} minutes`}
-                </p>
-              )}
-              {serviceType === 'dine-in' && (
-                <>
-                  <p className="text-sm text-gray-600">
-                    Party Size: {partySize} person{partySize !== 1 ? 's' : ''}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Preferred Time: {dineInTime ? new Date(dineInTime).toLocaleString('en-US', { 
-                      weekday: 'long', 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric', 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    }) : 'Not selected'}
-                  </p>
-                </>
-              )}
+            <div className="bg-brand-bg rounded-lg p-4">
+              <h4 className="font-medium text-brand-primary mb-2 font-inter">Customer Details</h4>
+              <p className="text-sm text-brand-muted font-inter">Name: {customerName}</p>
+              <p className="text-sm text-brand-muted font-inter">Service: {serviceType === 'dine-in' ? 'Dine In' : 'Take Out'}</p>
             </div>
 
             {cartItems.map((item) => (
-              <div key={item.id} className="flex items-center justify-between py-2 border-b border-red-100">
+              <div key={item.id} className="flex items-center justify-between py-2 border-b border-brand-primary/10">
                 <div>
-                  <h4 className="font-medium text-black">{item.name}</h4>
+                  <h4 className="font-medium text-brand-primary font-inter">{item.name}</h4>
                   {item.selectedVariation && (
-                    <p className="text-sm text-gray-600">Size: {item.selectedVariation.name}</p>
+                    <p className="text-sm text-brand-muted font-inter">Size: {item.selectedVariation.name}</p>
                   )}
                   {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                    <p className="text-sm text-gray-600">
-                      Add-ons: {item.selectedAddOns.map(addOn => 
-                        addOn.quantity && addOn.quantity > 1 
+                    <p className="text-sm text-brand-muted font-inter">
+                      Add-ons: {item.selectedAddOns.map(addOn =>
+                        addOn.quantity && addOn.quantity > 1
                           ? `${addOn.name} x${addOn.quantity}`
                           : addOn.name
                       ).join(', ')}
                     </p>
                   )}
-                  <p className="text-sm text-gray-600">₱{item.totalPrice} x {item.quantity}</p>
+                  <p className="text-sm text-brand-muted font-inter">₱{item.totalPrice} x {item.quantity}</p>
                 </div>
-                <span className="font-semibold text-black">₱{item.totalPrice * item.quantity}</span>
+                <span className="font-semibold text-brand-primary font-inter">₱{item.totalPrice * item.quantity}</span>
               </div>
             ))}
           </div>
-          
-          <div className="border-t border-red-200 pt-4 mb-6">
-            <div className="flex items-center justify-between text-2xl font-noto font-semibold text-black">
+
+          <div className="border-t border-brand-primary/20 pt-4 mb-6">
+            <div className="flex items-center justify-between text-2xl font-corinthia font-bold text-brand-primary">
               <span>Total:</span>
-              <span>₱{totalPrice}</span>
+              <span className="font-inter">₱{totalPrice}</span>
             </div>
           </div>
 
           <button
             onClick={handlePlaceOrder}
             disabled={creating || uploadingReceipt}
-            className={`w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform ${creating || uploadingReceipt ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700 hover:scale-[1.02]'}`}
+            className={`w-full py-4 rounded-xl font-medium text-lg transition-all duration-200 transform font-inter ${creating || uploadingReceipt ? 'bg-brand-light text-brand-muted cursor-not-allowed' : 'bg-brand-primary text-white hover:bg-brand-accent hover:scale-[1.02]'}`}
           >
             {uploadingReceipt ? (
               <span className="flex items-center justify-center space-x-2">
@@ -690,10 +586,10 @@ Please confirm this order to proceed. Thank you for choosing ClickEats! 🥟
             )}
           </button>
           {error && !uiNotice && (
-            <p className="text-sm text-red-600 text-center mt-2">{error}</p>
+            <p className="text-sm text-brand-primary text-center mt-2 font-inter">{error}</p>
           )}
-          
-          <p className="text-xs text-gray-500 text-center mt-3">
+
+          <p className="text-xs text-brand-muted text-center mt-3 font-inter">
             You'll be redirected to Facebook Messenger to confirm your order. Don't forget to attach your payment screenshot!
           </p>
         </div>

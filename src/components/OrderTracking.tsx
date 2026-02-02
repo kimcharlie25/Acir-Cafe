@@ -61,7 +61,7 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({ onBack }) => {
       case 'preparing':
         return 'Your order is being prepared.';
       case 'ready':
-        return 'Your order is ready for pickup/delivery!';
+        return 'Your order is ready!';
       case 'completed':
         return 'Your order has been completed. Thank you!';
       case 'cancelled':
@@ -88,7 +88,7 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({ onBack }) => {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!searchValue.trim()) {
       setError('Please enter a search value');
       return;
@@ -117,13 +117,13 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({ onBack }) => {
             .limit(100);
 
           if (fetchError) throw fetchError;
-          
+
           const searchValueUpper = searchValue.trim().toUpperCase();
-          const matchingOrder = data?.find(order => 
-            order.id.slice(-8).toUpperCase().includes(searchValueUpper) ||
+          const matchingOrder = data?.find(order =>
+            order.id.slice(-6).toUpperCase().includes(searchValueUpper) ||
             order.id.toUpperCase().includes(searchValueUpper)
           );
-          
+
           if (matchingOrder) {
             setOrder(matchingOrder as OrderWithItems);
           } else {
@@ -158,7 +158,7 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({ onBack }) => {
           .limit(1);
 
         if (fetchError) throw fetchError;
-        
+
         if (data && data.length > 0) {
           setOrder(data[0] as OrderWithItems);
         } else {
@@ -213,22 +213,20 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({ onBack }) => {
               <button
                 type="button"
                 onClick={() => setSearchType('orderId')}
-                className={`flex-1 px-4 py-2 rounded-lg border-2 transition-all ${
-                  searchType === 'orderId'
-                    ? 'border-red-600 bg-red-50 text-red-700 font-medium'
-                    : 'border-gray-300 text-gray-700 hover:border-gray-400'
-                }`}
+                className={`flex-1 px-4 py-2 rounded-lg border-2 transition-all ${searchType === 'orderId'
+                  ? 'border-red-600 bg-red-50 text-red-700 font-medium'
+                  : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                  }`}
               >
                 Order ID
               </button>
               <button
                 type="button"
                 onClick={() => setSearchType('phone')}
-                className={`flex-1 px-4 py-2 rounded-lg border-2 transition-all ${
-                  searchType === 'phone'
-                    ? 'border-red-600 bg-red-50 text-red-700 font-medium'
-                    : 'border-gray-300 text-gray-700 hover:border-gray-400'
-                }`}
+                className={`flex-1 px-4 py-2 rounded-lg border-2 transition-all ${searchType === 'phone'
+                  ? 'border-red-600 bg-red-50 text-red-700 font-medium'
+                  : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                  }`}
               >
                 Phone Number
               </button>
@@ -291,7 +289,7 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({ onBack }) => {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Order ID</p>
-                    <p className="font-semibold text-gray-900">#{order.id.slice(-8).toUpperCase()}</p>
+                    <p className="font-semibold text-gray-900">#{order.id.slice(-6).toUpperCase()}</p>
                   </div>
                 </div>
 
@@ -346,12 +344,6 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({ onBack }) => {
                 </div>
               </div>
 
-              {order.address && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <p className="text-sm text-gray-500 mb-1">Delivery Address</p>
-                  <p className="text-gray-900">{order.address}</p>
-                </div>
-              )}
 
               {order.notes && (
                 <div className="mt-4 pt-4 border-t border-gray-200">
@@ -377,7 +369,7 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({ onBack }) => {
                       )}
                       {item.add_ons && item.add_ons.length > 0 && (
                         <p className="text-sm text-gray-600">
-                          Add-ons: {item.add_ons.map((addon: any) => 
+                          Add-ons: {item.add_ons.map((addon: any) =>
                             addon.quantity > 1 ? `${addon.name} x${addon.quantity}` : addon.name
                           ).join(', ')}
                         </p>

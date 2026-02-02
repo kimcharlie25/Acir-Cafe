@@ -4,6 +4,13 @@ export default {
   theme: {
     extend: {
       colors: {
+        brand: {
+          bg: '#fff6f1',
+          primary: '#3a2c21',
+          accent: '#5c4033',
+          light: '#f5ebe6',
+          muted: '#8b7355'
+        },
         red: {
           50: '#fef2f2',
           100: '#fee2e2',
@@ -30,6 +37,7 @@ export default {
         }
       },
       fontFamily: {
+        'corinthia': ['Corinthia', 'cursive'],
         'inter': ['Inter', 'sans-serif'],
         'noto': ['Noto Serif', 'serif']
       },
