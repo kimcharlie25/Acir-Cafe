@@ -40,8 +40,8 @@ const CountdownModal: React.FC<{
           onClick={onDone}
           disabled={countdown > 0}
           className={`w-full py-3 rounded-xl transition-all duration-200 font-medium font-inter ${countdown > 0
-              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              : 'bg-brand-primary text-white hover:bg-brand-accent'
+            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            : 'bg-brand-primary text-white hover:bg-brand-accent'
             }`}
         >
           {countdown > 0 ? `Done (${countdown})` : 'Done'}
@@ -332,7 +332,7 @@ Please confirm this order to proceed. Thank you for choosing Acir Cafe! ☕
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { value: 'dine-in', label: 'Dine In', icon: '🪑' },
-                    { value: 'take-out', label: 'Take Out', icon: '🍔' }
+                    { value: 'take-out', label: 'Take Out', icon: '🥡' }
                   ].map((option) => (
                     <button
                       key={option.value}
