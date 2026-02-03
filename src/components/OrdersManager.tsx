@@ -171,7 +171,7 @@ const OrdersManager: React.FC<OrdersManagerProps> = ({ onBack }) => {
       // CSV Rows - Exact order as specified
       const rows = completedOrders.map(order => {
         return [
-          order.id.slice(-6).toUpperCase(),
+          order.order_number?.toString().padStart(3, '0') || order.id.slice(-6).toUpperCase(),
           order.customer_name,
           order.contact_number,
           'N/A', // Email field not in database
@@ -459,7 +459,7 @@ const OrdersManager: React.FC<OrdersManagerProps> = ({ onBack }) => {
                     {filtered.map((order) => (
                       <tr key={order.id} className="hover:bg-gray-50">
                         <td className="px-5 py-4">
-                          <div className="font-medium text-gray-900">#{order.id.slice(-6).toUpperCase()}</div>
+                          <div className="font-medium text-gray-900">#{order.order_number?.toString().padStart(3, '0') || order.id.slice(-6).toUpperCase()}</div>
                           <div className="text-xs text-gray-500">{order.order_items.length} item(s)</div>
                         </td>
                         <td className="px-5 py-4">
@@ -514,7 +514,7 @@ const OrdersManager: React.FC<OrdersManagerProps> = ({ onBack }) => {
                 <div key={order.id} className="bg-white rounded-xl shadow-sm border border-gray-200">
                   <div className="p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="font-semibold text-gray-900">#{order.id.slice(-6).toUpperCase()}</div>
+                      <div className="font-semibold text-gray-900">#{order.order_number?.toString().padStart(3, '0') || order.id.slice(-6).toUpperCase()}</div>
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
                         {getStatusIcon(order.status)}
                         <span className="ml-1 capitalize">{order.status}</span>
@@ -565,7 +565,7 @@ const OrdersManager: React.FC<OrdersManagerProps> = ({ onBack }) => {
             <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between rounded-t-2xl">
               <div>
                 <h3 className="text-xl font-semibold text-gray-900">
-                  Order #{selectedOrder.id.slice(-6).toUpperCase()}
+                  Order #{selectedOrder.order_number?.toString().padStart(3, '0') || selectedOrder.id.slice(-6).toUpperCase()}
                 </h3>
                 <p className="text-sm text-gray-500 mt-1">Complete order details</p>
               </div>

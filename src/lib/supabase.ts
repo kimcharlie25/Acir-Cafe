@@ -210,6 +210,7 @@ export type Database = {
       orders: {
         Row: {
           id: string;
+          order_number: number | null;
           customer_name: string;
           contact_number: string;
           service_type: 'dine-in' | 'take-out';

@@ -20,6 +20,7 @@ export interface CreateOrderPayload {
 
 export interface OrderWithItems {
   id: string;
+  order_number: number | null;
   customer_name: string;
   contact_number: string;
   service_type: 'dine-in' | 'take-out';

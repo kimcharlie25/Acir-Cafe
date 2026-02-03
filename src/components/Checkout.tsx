@@ -135,7 +135,8 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
         items: cartItems,
       });
       // Show the order confirmation modal
-      setConfirmedOrderNumber(order.id.slice(-6).toUpperCase());
+      const orderNum = order.order_number?.toString().padStart(3, '0') || order.id.slice(-6).toUpperCase();
+      setConfirmedOrderNumber(orderNum);
       setShowOrderModal(true);
     } catch (e) {
       const raw = e instanceof Error ? e.message : '';
@@ -181,6 +182,7 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
 
     // Persist order to database
     let orderId: string;
+    let orderNum: string;
     try {
       const mergedNotes = notes;
       const order = await createOrder({
@@ -194,6 +196,8 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
         receiptUrl: uploadedReceiptUrl ?? undefined,
       });
       orderId = order.id;
+      // Format order number for display (3-digit padded or fallback to ID slice)
+      orderNum = order.order_number?.toString().padStart(3, '0') || orderId.slice(-6).toUpperCase();
     } catch (e) {
       const raw = e instanceof Error ? e.message : '';
       if (/insufficient stock/i.test(raw)) {
@@ -210,9 +214,10 @@ const Checkout: React.FC<CheckoutProps> = ({ cartItems, totalPrice, onBack }) =>
       return;
     }
 
+
     const orderDetails = `
 🛒 ACIR CAFE ORDER
-📋 Order Code: #${orderId.slice(-6).toUpperCase()}
+📋 Order Number: #${orderNum}
 
 👤 Customer: ${customerName}
 📍 Service: ${serviceType === 'dine-in' ? 'Dine In' : 'Take Out'}
@@ -244,7 +249,7 @@ ${notes ? `📝 Notes: ${notes}` : ''}
 
 Please confirm this order to proceed. Thank you for choosing Acir Cafe! ☕
 
-📋 Order Code: #${orderId.slice(-6).toUpperCase()}
+📋 Order Number: #${orderNum}
     `.trim();
 
     const pageId = '61579693577478';

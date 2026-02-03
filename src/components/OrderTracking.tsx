@@ -119,10 +119,21 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({ onBack }) => {
           if (fetchError) throw fetchError;
 
           const searchValueUpper = searchValue.trim().toUpperCase();
-          const matchingOrder = data?.find(order =>
-            order.id.slice(-6).toUpperCase().includes(searchValueUpper) ||
-            order.id.toUpperCase().includes(searchValueUpper)
-          );
+          const searchNum = parseInt(searchValue.trim(), 10);
+          const matchingOrder = data?.find(order => {
+            // Match by order_number (3-digit daily number)
+            if (!isNaN(searchNum) && order.order_number === searchNum) {
+              return true;
+            }
+            // Fallback: match by padded order number string
+            const orderNumStr = order.order_number?.toString().padStart(3, '0') || '';
+            if (orderNumStr.includes(searchValueUpper)) {
+              return true;
+            }
+            // Legacy fallback: match by UUID slice
+            return order.id.slice(-6).toUpperCase().includes(searchValueUpper) ||
+              order.id.toUpperCase().includes(searchValueUpper);
+          });
 
           if (matchingOrder) {
             setOrder(matchingOrder as OrderWithItems);
@@ -288,8 +299,8 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({ onBack }) => {
                     <Package className="h-5 w-5 text-red-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Order ID</p>
-                    <p className="font-semibold text-gray-900">#{order.id.slice(-6).toUpperCase()}</p>
+                    <p className="text-sm text-gray-500">Order Number</p>
+                    <p className="font-semibold text-gray-900">#{order.order_number?.toString().padStart(3, '0') || order.id.slice(-6).toUpperCase()}</p>
                   </div>
                 </div>
 
